@@ -1,0 +1,3 @@
+[submodule "fbink-sys"]
+	path = fbink-sys
+	url = https://github.com/Szybet/fbink-sys.git
