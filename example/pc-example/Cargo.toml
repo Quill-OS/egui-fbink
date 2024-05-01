@@ -7,16 +7,15 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-#eframe = "0.13.0" # Gives us egui, epi and web+native backends
+eframe = "0.13.0" # Gives us egui, epi and web+native backends
 #egui_pocketbook="0.1.0"
 env_logger = "0.10"
 log = "0.4.20"
-egui = "0.27.2"
-epi = "0.17.0"
+epi = "0.13.0"
+egui = "0.13.1"
 serde = { version = "1", features = ["derive"], optional = true }
 log-panics = "*"
 backtrace = "*"
-egui-fbink = { path = "../" }
 
 [profile.release]
 panic = 'abort'

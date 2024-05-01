@@ -1,5 +1,4 @@
 use egui;
-use egui_fbink::handle_component_update;
 use epi;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -43,7 +42,7 @@ impl epi::App for TemplateApp {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
-    fn update(&mut self, ctx: &epi::egui::Context, frame: &epi::Frame) {
+    fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
         let Self { label, value } = self;
 
         // Examples of how to create different panels and windows.
@@ -51,18 +50,18 @@ impl epi::App for TemplateApp {
         // Tip: a good default choice is to just keep the `CentralPanel`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
-        epi::egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
+        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:
-            epi::egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.button("Open").clicked() {
-                        // cl
+            egui::menu::bar(ui, |ui| {
+                egui::menu::menu(ui, "File", |ui| {
+                    if ui.button("Quit").clicked() {
+                        frame.quit();
                     }
-                })
+                });
             });
         });
 
-        epi::egui::SidePanel::left("side_panel").show(ctx, |ui| {
+        egui::SidePanel::left("side_panel").show(ctx, |ui| {
             ui.heading("Side Panel");
 
             ui.horizontal(|ui| {
@@ -74,28 +73,27 @@ impl epi::App for TemplateApp {
                 *value += 1.0;
             }
 
-            ui.with_layout(
-                epi::egui::Layout::bottom_up(epi::egui::Align::Center),
-                |ui| {
-                    ui.add(epi::egui::Hyperlink::new("https://github.com/emilk/egui/"));
-                },
-            );
+            ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
+                ui.add(
+                    egui::Hyperlink::new("https://github.com/emilk/egui/").text("powered by egui"),
+                );
+            });
         });
 
-        epi::egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
 
             ui.heading("egui template");
             ui.hyperlink("https://github.com/emilk/egui_template");
-            ui.add(epi::egui::github_link_file!(
+            ui.add(egui::github_link_file!(
                 "https://github.com/emilk/egui_template/blob/master/",
                 "Source code."
             ));
-            epi::egui::warn_if_debug_build(ui);
+            egui::warn_if_debug_build(ui);
         });
 
         if false {
-            epi::egui::Window::new("Window").show(ctx, |ui| {
+            egui::Window::new("Window").show(ctx, |ui| {
                 ui.label("Windows can be moved by dragging them.");
                 ui.label("They are automatically sized based on contents.");
                 ui.label("You can turn on resizing and scrolling if you like.");

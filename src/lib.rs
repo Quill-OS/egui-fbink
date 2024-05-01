@@ -2,10 +2,8 @@ use crate::backend::{AppRunner, FbinkBackend};
 use egui::{Response, Vec2};
 use epi::{App, IntegrationInfo};
 use std::sync::{Arc, Mutex};
-use texture_allocator::FbinkTextureAllocator;
 
 mod backend;
-mod texture_allocator;
 
 pub fn start(mut app: Box<dyn App>, native_options: epi::NativeOptions) -> () {
     let mut backend = FbinkBackend::new();
@@ -15,9 +13,9 @@ pub fn start(mut app: Box<dyn App>, native_options: epi::NativeOptions) -> () {
     ////let c = pb_ui::UiComponent{ pos: (), size: (), data: ()};
     //let h: Arc<Mutex<dyn inkview_sys::EventHandler>> = Arc::new(Mutex::new(runner));
     //inkview_sys::main(&h);
-    loop {
+    //loop {
         runner.next_frame();
-    }
+    //}
 }
 
 pub fn handle_component_update(response: Response) -> Response {

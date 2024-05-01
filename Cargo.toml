@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-egui = "0.13.1"
-epi = "0.13.0"
+egui = "0.27.2"
+epi = "0.17.0"
 fbink-sys = { path = "fbink-sys/" }
 log = "0.4.21"
