@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::hash::{BuildHasherDefault, Hash};
 use ::std::os::raw::c_int;
-use egui::epaint::{text, ClippedShape};
+use egui::epaint::{text};
 use egui::{Event, FullOutput, ViewportId, ViewportInfo};
 use egui::{PointerButton, Pos2, TouchDeviceId, TouchId, TouchPhase, Vec2};
 use epi::egui::Shape;
@@ -14,7 +14,7 @@ use std::sync::atomic::Ordering::SeqCst;
 use std::sync::Arc;
 use std::{ffi::CString, process::exit};
 
-static pixel_per_point: f32 = 2.0;
+static pixel_per_point: f32 = 10.0;
 
 pub struct FbinkBackend {
     pub egui_ctx: epi::egui::Context,
@@ -81,9 +81,8 @@ impl FbinkBackend {
         self.egui_ctx.begin_frame(raw_input)
     }
 
-    pub fn end_frame(&mut self) -> (epi::egui::FullOutput) {
-        let mut output = self.egui_ctx.end_frame();
-        //output.shapes = self.egui_ctx.tessellate(output.shapes);
+    pub fn end_frame(&mut self) -> epi::egui::FullOutput {
+        let mut output: epi::egui::FullOutput = self.egui_ctx.end_frame();
         output
     }
 }
@@ -121,7 +120,7 @@ impl epi::backend::RepaintSignal for NeedRepaint {
 
 impl AppRunner {
     pub(crate) fn new(fbink_backend: FbinkBackend, app: Box<dyn epi::App>) -> Self {
-        fbink_backend.egui_ctx.set_visuals(epi::egui::Visuals::light());
+        fbink_backend.egui_ctx.set_visuals(epi::egui::Visuals::dark());
         let mut runner = Self {
             fbink_backend,
             app,
@@ -153,11 +152,14 @@ impl AppRunner {
     }
     pub fn draw_shapes(&mut self, clipped_shapes: Vec<epi::egui::epaint::ClippedShape>) {
         let ppp = self.fbink_backend.egui_ctx.pixels_per_point();
+
         debug!("draw shapes pixel per point: {}", ppp);
         for shape in clipped_shapes {
             if shape.0.is_negative() {
                 error!("clip rect is negative");
                 continue
+            } else {
+                // debug!("shape.0: {:?}", shape.0);
             }
             match shape.1 {
                 Shape::Noop => {}
@@ -185,19 +187,20 @@ impl AppRunner {
                         inkview_sys::Color::rgb(fill.r(), fill.g(), fill.b()), corner_radius as i32
                     );*/
 
-                    // debug!("Printing out rectangle at {:?}", rect);
-                    /*
+                    debug!("Printing out rectangle at {:?}", rect_shape);
                     let fbink_rect: FBInkRect = FBInkRect {
-                        left: rect.left() as u16,
-                        top: rect.top() as u16,
-                        width: rect.width() as u16,
-                        height: rect.height() as u16,
+                        left: rect_shape.rect.left() as u16,
+                        top: rect_shape.rect.top() as u16,
+                        width: rect_shape.rect.width() as u16,
+                        height: rect_shape.rect.height() as u16,
                     };
-                    */
+                    let r: u8 = rect_shape.fill.r();
+                    let g: u8 = rect_shape.fill.g();
+                    let b: u8 = rect_shape.fill.b();
+                    let a: u8 = rect_shape.fill.a();
 
-                    /*
                     unsafe {
-                        if fbink_cls(self.fbink_backend.fbfd, &self.fbink_backend.fbink_cfg, &fbink_rect, false) < 0 {
+                        if fbink_fill_rect_rgba(self.fbink_backend.fbfd, &self.fbink_backend.fbink_cfg, &fbink_rect, false, r, g, b, a) < 0 {
                             error!("Failed to draw rect");
                         } else {
                             debug!("Drawed rect succesfully");
@@ -205,7 +208,6 @@ impl AppRunner {
 
                         fbink_wait_for_complete(self.fbink_backend.fbfd, LAST_MARKER);
                     }
-                    */
                 }
                 Shape::Text(text_shape) => {
                     /*
@@ -223,12 +225,14 @@ impl AppRunner {
                             | inkview_sys::TextAlignFlag::ALIGN_LEFT as i32,
                     );
                     */
+                    debug!("text_shape: {:#?}", text_shape);
+                    let got_size = text_shape.galley.job.sections.first().unwrap().format.font_id.size;
                     debug!(
                         "Printing out string: {:?} at pos {:?} with size {:?}",
-                        text_shape.galley.text(), text_shape.pos, text_shape.galley.size()
+                        text_shape.galley.text(), text_shape.pos, got_size
                     );
 
-                    debug!("galley rect: {:?}", text_shape.galley.rect);
+                    //debug!("galley rect: {:?}", text_shape.galley.rect);
 
                     unsafe {
                         let mut fbink_ot: FBInkOTConfig =
@@ -238,9 +242,9 @@ impl AppRunner {
 
                         fbink_ot.margins.left = text_shape.pos.x as i16;
                         fbink_ot.margins.top = text_shape.pos.y as i16;
-                        fbink_ot.margins.right = 0;
-                        fbink_ot.margins.bottom = 0;
-                        fbink_ot.size_px = text_shape.galley.rect.height() as u16;
+                        //fbink_ot.margins.right = 0;
+                        //fbink_ot.margins.bottom = 0;
+                        fbink_ot.size_pt = got_size;
                         let cstr = CString::new(&*text_shape.galley.text()).unwrap();
                         let cchar: *const ::std::os::raw::c_char = cstr.as_ptr();
                         if fbink_print_ot(
@@ -264,7 +268,10 @@ impl AppRunner {
     pub fn next_frame(&mut self) {
         let raw_input = epi::egui::RawInput {
             screen_rect: Some(epi::egui::Rect {
-                min: Default::default(),
+                min: epi::egui::Pos2 {
+                    x: 0.0,
+                    y: 0.0,
+                },
                 max: epi::egui::Pos2 {
                     x: 758.0,
                     y: 1024.0,
@@ -298,12 +305,23 @@ impl AppRunner {
         };
         let frame_data = epi::Frame::new(frame);
 
+        // self.fbink_backend.egui_ctx.request_repaint(); // idk
         self.app.update(&self.fbink_backend.egui_ctx, &frame_data);
         
-        self.fbink_backend.egui_ctx.request_repaint(); // not sure this is needed
-
         let output = self.fbink_backend.end_frame();
-        
+        /*
+        let whatnow = self.fbink_backend.egui_ctx.tessellate(output.shapes.clone());
+        for what in whatnow {
+            debug!("whatnow: {:?}", what.0);
+            for vertexes in what.1.vertices {
+                debug!("whatnext: {:?}", vertexes.pos);
+            }
+        }
+        // in
+        // /home/szybet/.cargo/registry/src/index.crates.io-6f17d22bba15001f/epaint-0.17.0/src/tessellator.rs
+        // function tessellate_shape
+        // Shape::Text
+        */
         self.draw_shapes(output.shapes);
     }
 }

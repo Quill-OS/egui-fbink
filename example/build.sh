@@ -6,4 +6,4 @@ CC=clang cargo build -vv --release --target=armv7-unknown-linux-musleabihf
 
 # It's in target/armv7-unknown-linux-musleabihf/release/egui_template, scp it and run
 
-scp target/armv7-unknown-linux-musleabihf/release/egui_template root@192.168.2.2:/
+sshpass -p root scp target/armv7-unknown-linux-musleabihf/release/egui_template root@192.168.2.2:/

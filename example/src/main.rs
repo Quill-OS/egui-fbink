@@ -18,6 +18,7 @@ fn main() {
     );
     debug!("Starting the app");
     let app = TemplateApp::default();
-    let native_options = NativeOptions::default();
+    let mut native_options = NativeOptions::default();
+    native_options.resizable = false;
     egui_fbink::start(Box::new(app), native_options);
 }
