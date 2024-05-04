@@ -19,5 +19,5 @@ fn main() {
     debug!("Starting the app");
     let app = TemplateApp::default();
     let mut native_options = NativeOptions::default();
-    egui_fbink::start(Box::new(app), native_options);
+    egui_fbink::start(Box::new(app), native_options, 1.0);
 }

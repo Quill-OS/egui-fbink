@@ -1,18 +1,17 @@
-use crate::backend::{AppRunner, FbinkBackend};
+use crate::backend::{AppRunner};
 use eframe::{App, NativeOptions};
-use egui::{Response, Vec2};
+use ::egui::Response;
+use egui::{EguiStuff};
 use std::sync::{Arc, Mutex};
 
 mod backend;
+mod fbink;
+mod egui;
 
-pub fn start(mut app: Box<dyn App>, native_options: NativeOptions) -> () {
-    let mut backend = FbinkBackend::new();
-    let mut runner = AppRunner::new(backend, app);
+pub fn start(mut app: Box<dyn App>, native_options: NativeOptions, pixel_per_point: f32) -> () {
+    let mut egui_stuff: EguiStuff = EguiStuff::new(app, pixel_per_point);
+    let mut runner = AppRunner::new(egui_stuff);
 
-    //unsafe { c_api::OpenScreen() }
-    ////let c = pb_ui::UiComponent{ pos: (), size: (), data: ()};
-    //let h: Arc<Mutex<dyn inkview_sys::EventHandler>> = Arc::new(Mutex::new(runner));
-    //inkview_sys::main(&h);
     loop {
         runner.next_frame();
     }

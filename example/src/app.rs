@@ -2,22 +2,14 @@ use eframe::{App, Frame};
 use egui::{self, menu, CentralPanel, Context, TopBottomPanel};
 use egui_fbink::handle_component_update;
 
-/// We derive Deserialize/Serialize so we can persist app state on shutdown.
-#[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "persistence", serde(default))] // if we add new fields, give them default values when deserializing old state
 pub struct TemplateApp {
-    // Example stuff:
     label: String,
-
-    // this how you opt-out of serialization of a member
-    #[cfg_attr(feature = "persistence", serde(skip))]
     value: f32,
 }
 
 impl Default for TemplateApp {
     fn default() -> Self {
         Self {
-            // Example stuff:
             label: "Hello World!".to_owned(),
             value: 2.7,
         }
@@ -68,7 +60,6 @@ impl App for TemplateApp {
          */
         CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
-            ui.ctx().set_zoom_factor(10.0);
             ui.heading("egui template");
             ui.hyperlink("https://github.com/emilk/egui_template");
             ui.add(egui::github_link_file!(
