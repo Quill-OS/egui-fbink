@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 use std::hash::{BuildHasherDefault, Hash};
 use ::std::os::raw::c_int;
-use egui::epaint::{text};
-use egui::{Event, FullOutput, ViewportId, ViewportInfo};
+use eframe::{App, IntegrationInfo};
+use egui::epaint::{text, ClippedShape};
+use egui::{output, Context, Event, FullOutput, RawInput, Rect, Shape, ViewportId, ViewportInfo};
 use egui::{PointerButton, Pos2, TouchDeviceId, TouchId, TouchPhase, Vec2};
-use epi::egui::Shape;
-use epi::{IntegrationInfo, Storage};
 use fbink_sys::*;
 use log::{debug, error};
+use raw_window_handle::HandleError;
 use std::fs;
 use std::ptr::null;
 use std::sync::atomic::Ordering::SeqCst;
@@ -17,13 +17,13 @@ use std::{ffi::CString, process::exit};
 static pixel_per_point: f32 = 10.0;
 
 pub struct FbinkBackend {
-    pub egui_ctx: epi::egui::Context,
+    pub egui_ctx: Context,
     fbink_cfg: FBInkConfig,
     fbfd: c_int,
 }
 impl FbinkBackend {
     pub(crate) fn new() -> Self {
-        let ctx = epi::egui::Context::default();
+        let ctx = Context::default();
         debug!("Default pixels per point: {}", ctx.pixels_per_point());
         ctx.set_pixels_per_point(pixel_per_point);
 
@@ -64,7 +64,7 @@ impl FbinkBackend {
                 std::mem::transmute([0u8; std::mem::size_of::<FBInkRect>()]);
             cls_rect.left = 0;
             cls_rect.top = 0;
-            cls_rect.width = 0;
+            cls_rect.width = 0; 
             cls_rect.height = 0;
             fbink_cls(fbfd, &fbink_cfg, &cls_rect, false);
             fbink_wait_for_complete(fbfd, LAST_MARKER);
@@ -77,19 +77,19 @@ impl FbinkBackend {
         }
     }
 
-    pub fn begin_frame(&mut self, raw_input: epi::egui::RawInput) {
+    pub fn begin_frame(&mut self, raw_input: RawInput) {
         self.egui_ctx.begin_frame(raw_input)
     }
 
-    pub fn end_frame(&mut self) -> epi::egui::FullOutput {
-        let mut output: epi::egui::FullOutput = self.egui_ctx.end_frame();
+    pub fn end_frame(&mut self) -> FullOutput {
+        let mut output: FullOutput = self.egui_ctx.end_frame();
         output
     }
 }
 
 pub struct AppRunner {
     fbink_backend: FbinkBackend,
-    app: Box<dyn epi::App>,
+    app: Box<dyn App>,
     pub(crate) needs_repaint: std::sync::Arc<NeedRepaint>,
     //resource_storage: ResourceStorage
 }
@@ -112,15 +112,18 @@ impl NeedRepaint {
     }
 }
 
+// Gone?
+/*
 impl epi::backend::RepaintSignal for NeedRepaint {
     fn request_repaint(&self) {
         self.0.store(true, SeqCst);
     }
 }
+*/
 
 impl AppRunner {
-    pub(crate) fn new(fbink_backend: FbinkBackend, app: Box<dyn epi::App>) -> Self {
-        fbink_backend.egui_ctx.set_visuals(epi::egui::Visuals::dark());
+    pub(crate) fn new(fbink_backend: FbinkBackend, app: Box<dyn App>) -> Self {
+        fbink_backend.egui_ctx.set_visuals(egui::Visuals::dark());
         let mut runner = Self {
             fbink_backend,
             app,
@@ -128,8 +131,9 @@ impl AppRunner {
             //resource_storage: ResourceStorage::new(),
         };
 
-        let mut app_output = epi::backend::AppOutput::default();
-        let mut frame = epi::backend::FrameData {
+        /*
+        let mut app_output = output::FullOutput::default();
+        let mut frame = Frame {
             info: IntegrationInfo {
                 name: "egui_fbink",
                 web_info: None,
@@ -142,26 +146,28 @@ impl AppRunner {
             output: app_output,
             repaint_signal: runner.needs_repaint.clone(),
         };
-        let frame_data = epi::Frame::new(frame);
-
+        */
+        // Gone?
+        /*
         runner
             .app
             .setup(&runner.fbink_backend.egui_ctx, &frame_data, None);
+        */
 
         runner
     }
-    pub fn draw_shapes(&mut self, clipped_shapes: Vec<epi::egui::epaint::ClippedShape>) {
+    pub fn draw_shapes(&mut self, clipped_shapes: Vec<ClippedShape>) {
         let ppp = self.fbink_backend.egui_ctx.pixels_per_point();
 
         debug!("draw shapes pixel per point: {}", ppp);
         for shape in clipped_shapes {
-            if shape.0.is_negative() {
+            if shape.clip_rect.is_negative() {
                 error!("clip rect is negative");
                 continue
             } else {
                 // debug!("shape.0: {:?}", shape.0);
             }
-            match shape.1 {
+            match shape.shape {
                 Shape::Noop => {}
                 Shape::Vec(_) => {}
                 Shape::Circle(circle_shape) => {
@@ -225,11 +231,11 @@ impl AppRunner {
                             | inkview_sys::TextAlignFlag::ALIGN_LEFT as i32,
                     );
                     */
-                    debug!("text_shape: {:#?}", text_shape);
-                    let got_size = text_shape.galley.job.sections.first().unwrap().format.font_id.size;
+                    //debug!("text_shape: {:#?}", text_shape);
+                    //let got_size = text_shape.galley.job.sections.first().unwrap().format.font_id.size;
                     debug!(
                         "Printing out string: {:?} at pos {:?} with size {:?}",
-                        text_shape.galley.text(), text_shape.pos, got_size
+                        text_shape.galley.text(), text_shape.pos, text_shape.galley.size()
                     );
 
                     //debug!("galley rect: {:?}", text_shape.galley.rect);
@@ -244,7 +250,7 @@ impl AppRunner {
                         fbink_ot.margins.top = text_shape.pos.y as i16;
                         //fbink_ot.margins.right = 0;
                         //fbink_ot.margins.bottom = 0;
-                        fbink_ot.size_pt = got_size;
+                        fbink_ot.size_px = text_shape.galley.size().y as u16;
                         let cstr = CString::new(&*text_shape.galley.text()).unwrap();
                         let cchar: *const ::std::os::raw::c_char = cstr.as_ptr();
                         if fbink_print_ot(
@@ -262,17 +268,24 @@ impl AppRunner {
                 Shape::Mesh(_) => {}
                 Shape::QuadraticBezier(_) => {}
                 Shape::CubicBezier(_) => {},
+                Shape::Ellipse(_) => {},
+                Shape::Callback(_) => {}
             }
         }
     }
     pub fn next_frame(&mut self) {
-        let raw_input = epi::egui::RawInput {
-            screen_rect: Some(epi::egui::Rect {
-                min: epi::egui::Pos2 {
+        let mut view_port_list: HashMap<ViewportId, ViewportInfo, BuildHasherDefault<nohash_hasher::NoHashHasher<ViewportId>>> = Default::default();
+        let view_port_id = ViewportId::default();
+        let view_port_info = ViewportInfo::default();
+        view_port_list.insert(view_port_id, view_port_info);
+
+        let raw_input = RawInput {
+            screen_rect: Some(Rect {
+                min: Pos2 {
                     x: 0.0,
                     y: 0.0,
                 },
-                max: epi::egui::Pos2 {
+                max: Pos2 {
                     x: 758.0,
                     y: 1024.0,
                 },
@@ -284,29 +297,27 @@ impl AppRunner {
             max_texture_side: None,
             hovered_files: Vec::new(),
             dropped_files: Vec::new(),
-            pixels_per_point: Some(pixel_per_point),
+            viewport_id: view_port_id,
+            viewports: view_port_list,
+            focused: true,
         };
         self.fbink_backend.begin_frame(raw_input);
 
-        let mut app_output = epi::backend::AppOutput::default();
-
-        let mut frame = epi::backend::FrameData {
-            info: IntegrationInfo {
-                name: "egui_fbink",
-                web_info: None,
-                prefer_dark_mode: None,
-                cpu_usage: None,
-                native_pixels_per_point: Some(pixel_per_point), // This does nothing?
-            },
-            #[cfg(feature = "http")]
-            http: runner.http.clone(),
-            output: app_output,
-            repaint_signal: self.needs_repaint.clone(),
+        //let mut app_output = AppOutput::default();
+        let int_info = IntegrationInfo {
+            system_theme: None,
+            cpu_usage: None,
         };
-        let frame_data = epi::Frame::new(frame);
+        
+        let mut frame = eframe::Frame {
+            info: int_info,
+            storage: None,
+            raw_window_handle: Result::Err(HandleError::NotSupported),
+            raw_display_handle: Result::Err(HandleError::NotSupported),
+        };
 
         // self.fbink_backend.egui_ctx.request_repaint(); // idk
-        self.app.update(&self.fbink_backend.egui_ctx, &frame_data);
+        self.app.update(&self.fbink_backend.egui_ctx, &mut frame);
         
         let output = self.fbink_backend.end_frame();
         /*

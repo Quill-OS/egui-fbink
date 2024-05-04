@@ -1,11 +1,11 @@
 use crate::backend::{AppRunner, FbinkBackend};
+use eframe::{App, NativeOptions};
 use egui::{Response, Vec2};
-use epi::{App, IntegrationInfo};
 use std::sync::{Arc, Mutex};
 
 mod backend;
 
-pub fn start(mut app: Box<dyn App>, native_options: epi::NativeOptions) -> () {
+pub fn start(mut app: Box<dyn App>, native_options: NativeOptions) -> () {
     let mut backend = FbinkBackend::new();
     let mut runner = AppRunner::new(backend, app);
 

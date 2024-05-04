@@ -1,6 +1,6 @@
-use egui;
+use eframe::{App, Frame};
+use egui::{self, menu, CentralPanel, Context, TopBottomPanel};
 use egui_fbink::handle_component_update;
-use epi;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
@@ -24,14 +24,10 @@ impl Default for TemplateApp {
     }
 }
 
-impl epi::App for TemplateApp {
-    fn name(&self) -> &str {
-        "egui template"
-    }
-
+impl App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
-    fn update(&mut self, ctx: &epi::egui::Context, frame: &epi::Frame) {
+    fn update(&mut self, ctx: &Context, frame: &mut Frame) {
         let Self { label, value } = self;
 
         // Examples of how to create different panels and windows.
@@ -39,9 +35,9 @@ impl epi::App for TemplateApp {
         // Tip: a good default choice is to just keep the `CentralPanel`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
-        epi::egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
+        TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:
-            epi::egui::menu::bar(ui, |ui| {
+            menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
                     if ui.button("Open").clicked() {
                         // cl
@@ -70,16 +66,16 @@ impl epi::App for TemplateApp {
             );
         });
          */
-        epi::egui::CentralPanel::default().show(ctx, |ui| {
+        CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
 
             ui.heading("egui template");
             ui.hyperlink("https://github.com/emilk/egui_template");
-            ui.add(epi::egui::github_link_file!(
+            ui.add(egui::github_link_file!(
                 "https://github.com/emilk/egui_template/blob/master/",
                 "Source code."
             ));
-            epi::egui::warn_if_debug_build(ui);
+            egui::warn_if_debug_build(ui);
         });
 
         /*

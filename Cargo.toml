@@ -7,6 +7,8 @@ edition = "2021"
 
 [dependencies]
 egui = "0.27.2"
-epi = "0.17.0"
+eframe = { version = "0.27.2", default-features = false, features = ["default_fonts", "x11"] }
 fbink-sys = { path = "fbink-sys/" }
 log = "0.4.21"
+raw-window-handle = "0.6.1"
+nohash-hasher = "0.2.0"

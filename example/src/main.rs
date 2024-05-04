@@ -1,5 +1,5 @@
+use eframe::NativeOptions;
 use egui_fbink;
-use epi::NativeOptions;
 use std::{panic, thread};
 use std::fs::File;
 use std::io::Write;
@@ -19,6 +19,5 @@ fn main() {
     debug!("Starting the app");
     let app = TemplateApp::default();
     let mut native_options = NativeOptions::default();
-    native_options.resizable = false;
     egui_fbink::start(Box::new(app), native_options);
 }
