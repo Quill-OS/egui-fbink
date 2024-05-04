@@ -154,6 +154,7 @@ impl AppRunner {
         }
     }
     pub fn next_frame(&mut self) {
+        let timer = self.egui.get_start_time();
         let raw_input = RawInput {
             screen_rect: Some(Rect {
                 min: Pos2 {
@@ -165,11 +166,11 @@ impl AppRunner {
                     y: 1024.0,
                 },
             }),
-            time: None,
+            time: timer.map(|v| v as f64),
             predicted_dt: 1.0/60.0,
             modifiers: Default::default(),
             events: Vec::new(),
-            max_texture_side: None,
+            max_texture_side: Some(2048), // Increase this if warnings of texture sizes appear?
             hovered_files: Vec::new(),
             dropped_files: Vec::new(),
             viewport_id: self.egui.view_port_id,
@@ -177,20 +178,20 @@ impl AppRunner {
             focused: true,
         };
 
-        self.egui.ctx.begin_frame(raw_input);
-        
         let mut frame = eframe::Frame {
             info: IntegrationInfo {
                 system_theme: None,
-                cpu_usage: None,
+                cpu_usage: timer,
             },
             storage: None,
             raw_window_handle: Result::Err(HandleError::NotSupported),
             raw_display_handle: Result::Err(HandleError::NotSupported),
         };
 
+        self.egui.ctx.begin_frame(raw_input);
+
         self.egui.app.update(&self.egui.ctx, &mut frame);
-        
+
         let output = self.egui.ctx.end_frame();
 
         self.draw_shapes(output.shapes);
