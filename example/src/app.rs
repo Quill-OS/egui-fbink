@@ -68,7 +68,7 @@ impl App for TemplateApp {
          */
         CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
-
+            ui.ctx().set_zoom_factor(10.0);
             ui.heading("egui template");
             ui.hyperlink("https://github.com/emilk/egui_template");
             ui.add(egui::github_link_file!(

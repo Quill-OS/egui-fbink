@@ -14,7 +14,7 @@ use std::sync::atomic::Ordering::SeqCst;
 use std::sync::Arc;
 use std::{ffi::CString, process::exit};
 
-static pixel_per_point: f32 = 10.0;
+static pixel_per_point: f32 = 1.0;
 
 pub struct FbinkBackend {
     pub egui_ctx: Context,
