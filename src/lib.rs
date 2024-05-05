@@ -3,7 +3,7 @@ use eframe::{App, NativeOptions};
 use ::egui::Response;
 use egui::{EguiStuff};
 use log::debug;
-use std::sync::{Arc, Mutex};
+use std::{sync::{Arc, Mutex}, thread::sleep, time::Duration};
 
 mod backend;
 mod fbink;
@@ -13,8 +13,10 @@ pub fn start(mut app: Box<dyn App>, native_options: NativeOptions, pixel_per_poi
     let mut egui_stuff: EguiStuff = EguiStuff::new(app, pixel_per_point, zoom_factor);
     let mut runner = AppRunner::new(egui_stuff);
 
+    runner.next_frame();
     loop {
         runner.next_frame();
+        sleep(Duration::from_secs(3));
     }
 }
 

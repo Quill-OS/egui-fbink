@@ -1,6 +1,9 @@
 use std::{collections::HashMap, hash::BuildHasherDefault, time::SystemTime};
 
 use eframe::App;
+use egui::FontFamily::Proportional;
+use egui::FontId;
+use egui::TextStyle::*;
 use egui::{Context, Pos2, Rect, Vec2, ViewportId, ViewportInfo};
 
 pub struct EguiStuff {
@@ -21,6 +24,18 @@ impl EguiStuff {
         let ctx = Context::default();
         ctx.set_embed_viewports(true);
         ctx.set_pixels_per_point(pixel_per_point);
+        //ctx.set_visuals(egui::Visuals::light());
+
+        let mut style = (*ctx.style()).clone();
+
+        for ts in &mut style.text_styles {
+            ts.1.size *= zoom_factor;
+        }
+
+        style.spacing.icon_width_inner *= zoom_factor;
+        style.spacing.icon_width *= zoom_factor;
+
+        ctx.set_style(style);
 
         /*
         let mut fonts = egui::FontDefinitions::default();

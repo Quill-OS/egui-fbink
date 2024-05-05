@@ -27,6 +27,7 @@ impl App for TemplateApp {
         // Tip: a good default choice is to just keep the `CentralPanel`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
         
+        /*
         TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:
             menu::bar(ui, |ui| {
@@ -37,6 +38,8 @@ impl App for TemplateApp {
                 })
             });
         });
+        */
+
         /*
         epi::egui::SidePanel::left("side_panel").show(ctx, |ui| {
             ui.heading("Side Panel");
@@ -60,12 +63,9 @@ impl App for TemplateApp {
          */
         CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
-            ui.heading("egui template");
-            ui.hyperlink("https://github.com/emilk/egui_template");
-            ui.add(egui::github_link_file!(
-                "https://github.com/emilk/egui_template/blob/master/",
-                "Source code."
-            ));
+            ui.heading("This is a heading");
+            ui.hyperlink("https://this_is_a_link");
+            ui.checkbox(&mut true, "This is a checkbox");
             egui::warn_if_debug_build(ui);
         });
 
