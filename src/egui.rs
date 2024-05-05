@@ -7,6 +7,7 @@ pub struct EguiStuff {
     pub ctx: Context,
     pub app: Box<dyn App>,
     pub pixel_per_point: f32,
+    pub zoom_factor: f32,
     pub view_port_id: ViewportId,
     pub view_port_list: HashMap<
         ViewportId,
@@ -16,7 +17,7 @@ pub struct EguiStuff {
     pub start_time: Option<SystemTime>,
 }
 impl EguiStuff {
-    pub fn new(app: Box<dyn App>, pixel_per_point: f32) -> Self {
+    pub fn new(app: Box<dyn App>, pixel_per_point: f32, zoom_factor: f32) -> Self {
         let ctx = Context::default();
         ctx.set_embed_viewports(true);
         ctx.set_pixels_per_point(pixel_per_point);
@@ -73,6 +74,7 @@ impl EguiStuff {
             ctx,
             app,
             pixel_per_point,
+            zoom_factor,
             view_port_id,
             view_port_list,
             start_time: None,

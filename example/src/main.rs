@@ -21,5 +21,5 @@ fn main() {
     let mut native_options = NativeOptions::default();
     native_options.hardware_acceleration = eframe::HardwareAcceleration::Off;
     native_options.vsync = false;
-    egui_fbink::start(Box::new(app), native_options, 1.0);
+    egui_fbink::start(Box::new(app), native_options, 1.0, 4.0);
 }

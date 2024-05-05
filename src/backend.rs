@@ -190,7 +190,21 @@ impl AppRunner {
         };
 
         self.egui.ctx.begin_frame(raw_input);
+
+        // in /home/szybet/.cargo/registry/src/index.crates.io-6f17d22bba15001f/egui-0.27.2/src/context.rs
+        // ContextImpl::begin_frame_mut
+        // if let Some(new_zoom_factor) = self.new_zoom_factor.take()
+        // to
+        // if let Some(new_zoom_factor) = self.new_zoom_factor
+        if timer.is_none() {
+            self.egui.ctx.set_zoom_factor(self.egui.zoom_factor);
+            debug!("Setting initial zoom factor");
+        }
+
+        self.egui.ctx.request_repaint();
+
         self.egui.app.update(&self.egui.ctx, &mut frame);
+
         let output = self.egui.ctx.end_frame();
 
         // There is nothing interesting

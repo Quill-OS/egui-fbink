@@ -9,8 +9,8 @@ mod backend;
 mod fbink;
 mod egui;
 
-pub fn start(mut app: Box<dyn App>, native_options: NativeOptions, pixel_per_point: f32) -> () {
-    let mut egui_stuff: EguiStuff = EguiStuff::new(app, pixel_per_point);
+pub fn start(mut app: Box<dyn App>, native_options: NativeOptions, pixel_per_point: f32, zoom_factor: f32) -> () {
+    let mut egui_stuff: EguiStuff = EguiStuff::new(app, pixel_per_point, zoom_factor);
     let mut runner = AppRunner::new(egui_stuff);
 
     loop {
