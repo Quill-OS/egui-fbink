@@ -155,6 +155,7 @@ impl AppRunner {
     }
     pub fn next_frame(&mut self) {
         let timer = self.egui.get_start_time();
+
         let raw_input = RawInput {
             screen_rect: Some(Rect {
                 min: Pos2 {
@@ -189,10 +190,11 @@ impl AppRunner {
         };
 
         self.egui.ctx.begin_frame(raw_input);
-
         self.egui.app.update(&self.egui.ctx, &mut frame);
-
         let output = self.egui.ctx.end_frame();
+
+        // There is nothing interesting
+        // let viewport_out = output.viewport_output.get(&self.egui.view_port_id).unwrap();
 
         self.draw_shapes(output.shapes);
     }

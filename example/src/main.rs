@@ -19,5 +19,7 @@ fn main() {
     debug!("Starting the app");
     let app = TemplateApp::default();
     let mut native_options = NativeOptions::default();
+    native_options.hardware_acceleration = eframe::HardwareAcceleration::Off;
+    native_options.vsync = false;
     egui_fbink::start(Box::new(app), native_options, 1.0);
 }

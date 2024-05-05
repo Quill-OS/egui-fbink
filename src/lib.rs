@@ -2,6 +2,7 @@ use crate::backend::{AppRunner};
 use eframe::{App, NativeOptions};
 use ::egui::Response;
 use egui::{EguiStuff};
+use log::debug;
 use std::sync::{Arc, Mutex};
 
 mod backend;

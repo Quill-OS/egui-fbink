@@ -18,8 +18,26 @@ pub struct EguiStuff {
 impl EguiStuff {
     pub fn new(app: Box<dyn App>, pixel_per_point: f32) -> Self {
         let ctx = Context::default();
-        // debug!("Default pixels per point: {}", ctx.pixels_per_point()); // It's always 1
+        ctx.set_embed_viewports(true);
         ctx.set_pixels_per_point(pixel_per_point);
+
+        /*
+        let mut fonts = egui::FontDefinitions::default();
+        fonts.font_data.insert(
+            "my_font".to_owned(),
+            egui::FontData::from_static(include_bytes!(
+                "/mnt/data/projects/inkbox/egui-fbink/Ubuntu-Light.ttf"
+            )),
+        ); // .ttf and .otf supported
+
+        fonts
+            .families
+            .get_mut(&egui::FontFamily::Proportional)
+            .unwrap()
+            .insert(0, "my_font".to_owned());
+
+        ctx.set_fonts(fonts);
+        */
 
         let mut view_port_list: HashMap<
             ViewportId,
@@ -42,7 +60,7 @@ impl EguiStuff {
             },
         });
 
-        view_port_info.native_pixels_per_point = Some(5.0);
+        view_port_info.native_pixels_per_point = Some(pixel_per_point);
         view_port_info.monitor_size = screen_size;
         view_port_info.inner_rect = screen_size_rect;
         view_port_info.outer_rect = screen_size_rect;

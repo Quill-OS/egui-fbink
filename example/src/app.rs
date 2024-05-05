@@ -22,7 +22,6 @@ impl App for TemplateApp {
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &Context, frame: &mut Frame) {
         let Self { label, value } = self;
-        ctx.set_zoom_factor(5.0);
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
         // Tip: a good default choice is to just keep the `CentralPanel`.
