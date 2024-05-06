@@ -23,9 +23,9 @@ pub struct AppRunner {
 }
 
 impl AppRunner {
-    pub(crate) fn new(egui: EguiStuff) -> Self {
+    pub(crate) fn new(egui: EguiStuff, fb: FBInkBackend) -> Self {
         let mut runner = Self {
-            fb: FBInkBackend::new(),
+            fb,
             egui,
         };
         /*
@@ -49,22 +49,29 @@ impl AppRunner {
             }
             match shape.shape {
                 Shape::Noop => {}
-                Shape::Vec(vec) => {}
-                Shape::Circle(circle_shape) => {
-
+                Shape::Vec(vec) => {
+                    debug!("Printing out vecs: {:?}", vec);
                 }
-                Shape::LineSegment { .. } => {}
-                Shape::Path { .. } => {}
+                Shape::Circle(circle) => {
+                    debug!("Printing out circles: {:?}", circle);
+                }
+                Shape::LineSegment {points, stroke} => {
+                    debug!("Printing out points {:?} with strokes {:?}", points, stroke);
+                }
+                Shape::Path(path) => {
+                    debug!("Printing out path: {:?}", path);
+                    self.fb.draw_paths(path);
+                }
                 Shape::Rect(rect) => {
                     debug!("Printing out rectangle at {:?}", rect);
-                    self.fb.drawRect(rect);
+                    self.fb.draw_rect(rect);
                 }
                 Shape::Text(text) => {
-                    debug!(
-                        "Printing out string: {:?} at pos {:?} with size {:?}",
-                        text.galley.text(), text.pos, text.galley.size()
-                    );
-                    self.fb.drawText(text);
+                    // debug!(
+                    //     "Printing out string: {:?} at pos {:?} with size {:?}",
+                    //     text.galley.text(), text.pos, text.galley.size()
+                    // );
+                    self.fb.draw_text(text);
                 }
                 Shape::Mesh(mesg) => {}
                 Shape::QuadraticBezier(qb) => {}
@@ -84,8 +91,8 @@ impl AppRunner {
                     y: 0.0,
                 },
                 max: Pos2 {
-                    x: 758.0,
-                    y: 1024.0,
+                    x: self.fb.state.screen_width as f32,
+                    y: self.fb.state.screen_height as f32,
                 },
             }),
             time: timer.map(|v| v as f64),

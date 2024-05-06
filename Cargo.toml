@@ -13,3 +13,4 @@ log = "0.4.21"
 raw-window-handle = "0.6.1"
 nohash-hasher = "0.2.0"
 raqote = { version = "0.8.4", default-features = false} # Remove text because something something text
+euclid = "0.22.9"

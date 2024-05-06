@@ -6,6 +6,8 @@ use egui::FontId;
 use egui::TextStyle::*;
 use egui::{Context, Pos2, Rect, Vec2, ViewportId, ViewportInfo};
 
+use crate::fbink::FBInkBackend;
+
 pub struct EguiStuff {
     pub ctx: Context,
     pub app: Box<dyn App>,
@@ -20,7 +22,12 @@ pub struct EguiStuff {
     pub start_time: Option<SystemTime>,
 }
 impl EguiStuff {
-    pub fn new(app: Box<dyn App>, pixel_per_point: f32, zoom_factor: f32) -> Self {
+    pub fn new(
+        app: Box<dyn App>,
+        fb: &FBInkBackend,
+        pixel_per_point: f32,
+        zoom_factor: f32,
+    ) -> Self {
         let ctx = Context::default();
         ctx.set_embed_viewports(true);
         ctx.set_pixels_per_point(pixel_per_point);
@@ -64,15 +71,15 @@ impl EguiStuff {
         let mut view_port_info = ViewportInfo::default();
 
         let screen_size = Some(Vec2 {
-            x: 758.0,
-            y: 1024.0,
+            x: fb.state.screen_width as f32,
+            y: fb.state.screen_height as f32,
         });
 
         let screen_size_rect = Some(Rect {
             min: Pos2 { x: 0.0, y: 0.0 },
             max: Pos2 {
-                x: 758.0,
-                y: 1024.0,
+                x: fb.state.screen_width as f32,
+                y: fb.state.screen_height as f32,
             },
         });
 

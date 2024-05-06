@@ -1,6 +1,6 @@
 use ::std::os::raw::c_int;
 use egui::{
-    epaint::{RectShape, TextShape},
+    epaint::{PathShape, RectShape, TextShape},
     Shape,
 };
 use fbink_sys::fbink_print_ot;
@@ -13,28 +13,41 @@ use fbink_sys::{
 };
 use ffi::CString;
 use log::{debug, error};
-use raqote::{DrawOptions, DrawTarget, SolidSource, Source};
+use raqote::{DrawOptions, DrawTarget, IntPoint, IntRect, SolidSource, Source};
 use std::{ffi, fs, process::exit};
+use fbink_sys::BG_COLOR_INDEX_E_BG_WHITE;
+use fbink_sys::FG_COLOR_INDEX_E_FG_WHITE;
+use fbink_sys::FBInkState;
+use fbink_sys::fbink_get_state;
+use euclid::Point2D;
 
 pub struct FBInkBackend {
-    pub fbink_cfg: FBInkConfig,
-    pub fbfd: c_int,
+    pub cfg: FBInkConfig,
+    pub fd: c_int,
+    pub state: FBInkState,
+    pub dt: DrawTarget,
 }
 
 impl FBInkBackend {
     pub fn new() -> Self {
-        let fbfd: c_int = unsafe { fbink_open() };
-        if fbfd < 0 {
+        let fd: c_int = unsafe { fbink_open() };
+        if fd < 0 {
             error!("Failed to open fbink");
             exit(1);
         }
-        let mut fbink_cfg: FBInkConfig = unsafe { std::mem::zeroed() };
+        let mut cfg: FBInkConfig = unsafe { std::mem::zeroed() };
+
+        let mut state: FBInkState = unsafe { std::mem::zeroed() };
 
         unsafe {
-            if fbink_init(fbfd, &fbink_cfg) < 0 {
+            if fbink_init(fd, &cfg) < 0 {
                 error!("Failed to init fbink");
                 exit(1);
             }
+
+            fbink_get_state(&cfg, &mut state);
+            // Why does it compile but it shows errors
+            debug!("Running on {:?}, codename: {:?}, platform: {:?}, with screen: {:?}x{:?}", u8_to_string(state.device_name), u8_to_string(state.device_codename), u8_to_string(state.device_platform), state.screen_width, state.screen_height);
 
             static FONT_PATH: &str = "fonts/";
             for entry in fs::read_dir(FONT_PATH).expect("fonts dir wasn't found") {
@@ -60,14 +73,16 @@ impl FBInkBackend {
             cls_rect.top = 0;
             cls_rect.width = 0;
             cls_rect.height = 0;
-            fbink_fill_rect_rgba(fbfd, &fbink_cfg, &cls_rect, false, 255, 255, 255, 255);
-            fbink_wait_for_complete(fbfd, LAST_MARKER);
+            fbink_fill_rect_rgba(fd, &cfg, &cls_rect, false, 255, 255, 255, 255);
+            fbink_wait_for_complete(fd, LAST_MARKER);
         }
 
-        Self { fbink_cfg, fbfd }
+        let mut dt = DrawTarget::new(state.screen_width as i32, state.screen_height as i32);
+
+        Self { cfg, fd, state, dt }
     }
 
-    pub fn drawRect(&mut self, rect: RectShape) {
+    pub fn draw_rect(&mut self, rect: RectShape) {
         /*
         let fbink_rect: FBInkRect = FBInkRect {
             left: rect.rect.left() as u16,
@@ -93,10 +108,9 @@ impl FBInkBackend {
         */
         let height = rect.rect.height() as i32;
         let width = rect.rect.width() as i32;
-        let mut dt = DrawTarget::new(width, height);
-        dt.fill_rect(
-            0.0,
-            0.0,
+        self.dt.fill_rect(
+            rect.rect.left(),
+            rect.rect.top(),
             rect.rect.width(),
             rect.rect.height(),
             &Source::Solid(SolidSource::from_unpremultiplied_argb(
@@ -107,30 +121,30 @@ impl FBInkBackend {
             )),
             &DrawOptions::new(),
         );
-        let rdata = dt.get_data_u8();
+
         let data: *const u8 = rdata.as_ptr();
         unsafe {
             fbink_print_raw_data(
-                self.fbfd,
+                self.fd,
                 data,
                 width,
                 height,
                 rdata.len(),
                 rect.rect.min.x as i16,
                 rect.rect.min.y as i16,
-                &self.fbink_cfg,
+                &self.cfg,
             );
-            fbink_wait_for_complete(self.fbfd, LAST_MARKER);
+            fbink_wait_for_complete(self.fd, LAST_MARKER);
         }
     }
 
-    pub fn drawText(&mut self, text: TextShape) {
+    pub fn draw_text(&mut self, text: TextShape) {
         unsafe {
             let mut fbink_ot: FBInkOTConfig = std::mem::zeroed();
             let mut fbink_ot_fit: FBInkOTFit = std::mem::zeroed();
-            let mut font_fb_config = self.fbink_cfg;
-            font_fb_config.fg_color = 255;
-            font_fb_config.bg_color = 255;
+            let mut font_fb_config: FBInkConfig = std::mem::zeroed(); // self.fbink_cfg;
+            //font_fb_config.pen_fg_color = FG_COLOR_INDEX_E_FG_WHITE;
+            //font_fb_config.pen_bg_color = BG_COLOR_INDEX_E_BG_WHITE;
     
             fbink_ot.margins.left = text.pos.x as i16;
             fbink_ot.margins.top = text.pos.y as i16;
@@ -140,7 +154,7 @@ impl FBInkBackend {
             let cstr = CString::new(&*text.galley.text()).unwrap();
             let cchar: *const ::std::os::raw::c_char = cstr.as_ptr();
             if fbink_print_ot(
-                self.fbfd,
+                self.fd,
                 cchar,
                 &fbink_ot,
                 &font_fb_config,
@@ -149,7 +163,26 @@ impl FBInkBackend {
             {
                 error!("Failed to print string");
             }
-            fbink_wait_for_complete(self.fbfd, LAST_MARKER);
+            fbink_wait_for_complete(self.fd, LAST_MARKER);
         }
     }
+
+    pub fn draw_paths(&mut self, text: PathShape) {
+
+    }
+}
+
+pub fn rgb_to_gray(r: u8, g: u8, b: u8) -> u8 {
+    // 709 formula
+    let gray = (0.2126 * (r as f32) + 0.7152 * (g as f32) + 0.0722 * (b as f32)).round() as u8;
+    gray
+}
+
+pub fn invert_byte(b: u8) -> u8 {
+    !b
+}
+
+fn u8_to_string(arr: [u8; 32]) -> String {
+    let mut str: String = arr.iter().map(|&c| c as char).collect();
+    str.replace("\0", "")
 }
