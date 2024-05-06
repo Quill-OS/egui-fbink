@@ -1,31 +1,40 @@
 use ::std::os::raw::c_int;
+use core::convert::TryInto;
 use egui::{
     epaint::{PathShape, RectShape, TextShape},
     Shape,
 };
+use embedded_graphics::{
+    pixelcolor::{
+        raw::{RawU16, RawU24},
+        Gray8, GrayColor, Rgb555, Rgb565, Rgb888,
+    },
+    prelude::*,
+    primitives::{Circle, PrimitiveStyle, PrimitiveStyleBuilder, Rectangle, RoundedRectangle},
+};
+use fbink_sys::fbink_get_state;
+use fbink_sys::fbink_put_pixel_rgba;
 use fbink_sys::fbink_print_ot;
 use fbink_sys::fbink_print_raw_data;
+use fbink_sys::fbink_put_pixel;
 use fbink_sys::FBInkOTConfig;
 use fbink_sys::FBInkOTFit;
+use fbink_sys::FBInkState;
+use fbink_sys::BG_COLOR_INDEX_E_BG_WHITE;
+use fbink_sys::FG_COLOR_INDEX_E_FG_WHITE;
 use fbink_sys::{
     fbink_add_ot_font, fbink_fill_rect_rgba, fbink_init, fbink_open, fbink_wait_for_complete,
     FBInkConfig, FBInkRect, LAST_MARKER,
 };
 use ffi::CString;
 use log::{debug, error};
-use raqote::{DrawOptions, DrawTarget, IntPoint, IntRect, SolidSource, Source};
 use std::{ffi, fs, process::exit};
-use fbink_sys::BG_COLOR_INDEX_E_BG_WHITE;
-use fbink_sys::FG_COLOR_INDEX_E_FG_WHITE;
-use fbink_sys::FBInkState;
-use fbink_sys::fbink_get_state;
-use euclid::Point2D;
 
 pub struct FBInkBackend {
     pub cfg: FBInkConfig,
     pub fd: c_int,
     pub state: FBInkState,
-    pub dt: DrawTarget,
+    pub fb: Vec<u8>,
 }
 
 impl FBInkBackend {
@@ -47,7 +56,14 @@ impl FBInkBackend {
 
             fbink_get_state(&cfg, &mut state);
             // Why does it compile but it shows errors
-            debug!("Running on {:?}, codename: {:?}, platform: {:?}, with screen: {:?}x{:?}", u8_to_string(state.device_name), u8_to_string(state.device_codename), u8_to_string(state.device_platform), state.screen_width, state.screen_height);
+            debug!(
+                "Running on {:?}, codename: {:?}, platform: {:?}, with screen: {:?}x{:?}",
+                u8_to_string(state.device_name),
+                u8_to_string(state.device_codename),
+                u8_to_string(state.device_platform),
+                state.screen_width,
+                state.screen_height
+            );
 
             static FONT_PATH: &str = "fonts/";
             for entry in fs::read_dir(FONT_PATH).expect("fonts dir wasn't found") {
@@ -77,63 +93,37 @@ impl FBInkBackend {
             fbink_wait_for_complete(fd, LAST_MARKER);
         }
 
-        let mut dt = DrawTarget::new(state.screen_width as i32, state.screen_height as i32);
+        let mut fb = Vec::with_capacity((state.screen_width * state.screen_height) as usize * 3);
+        fb.fill(0);
 
-        Self { cfg, fd, state, dt }
+        Self { cfg, fd, state, fb }
     }
 
     pub fn draw_rect(&mut self, rect: RectShape) {
-        /*
-        let fbink_rect: FBInkRect = FBInkRect {
-            left: rect.rect.left() as u16,
-            top: rect.rect.top() as u16,
-            width: rect.rect.width() as u16,
-            height: rect.rect.height() as u16,
-        };
-        let r: u8 = rect.fill.r();
-        let g: u8 = rect.fill.g();
-        let b: u8 = rect.fill.b();
-        let a: u8 = rect.fill.a();
-
-        unsafe {
-            if fbink_fill_rect_rgba(self.fbfd, &self.fbink_cfg, &fbink_rect, false, r, g, b, a) < 0
-            {
-                error!("Failed to draw rect");
-            } else {
-                debug!("Drawed rect succesfully");
-            }
-
-            fbink_wait_for_complete(self.fbfd, LAST_MARKER);
-        }
-        */
-        let height = rect.rect.height() as i32;
-        let width = rect.rect.width() as i32;
-        self.dt.fill_rect(
-            rect.rect.left(),
-            rect.rect.top(),
-            rect.rect.width(),
-            rect.rect.height(),
-            &Source::Solid(SolidSource::from_unpremultiplied_argb(
-                rect.fill.a(),
-                rect.fill.r(),
-                rect.fill.g(),
-                rect.fill.b(),
-            )),
-            &DrawOptions::new(),
+        let stroke_color = Rgb888::new(
+            rect.stroke.color.r(),
+            rect.stroke.color.g(),
+            rect.stroke.color.b(),
         );
+        let fill_color = Rgb888::new(rect.fill.r(), rect.fill.g(), rect.fill.b());
 
-        let data: *const u8 = rdata.as_ptr();
+        let style = PrimitiveStyleBuilder::new()
+            .stroke_width(rect.stroke.width as u32)
+            .stroke_color(stroke_color)
+            .fill_color(fill_color)
+            .build();
+
+        RoundedRectangle::with_equal_corners(
+            Rectangle::new(
+                Point::new(rect.rect.left() as i32, rect.rect.top() as i32),
+                Size::new(rect.rect.width() as u32, rect.rect.height() as u32),
+            ),
+            Size::new(rect.rounding.ne as u32, rect.rounding.ne as u32),
+        )
+        .into_styled(style)
+        .draw(self);
+
         unsafe {
-            fbink_print_raw_data(
-                self.fd,
-                data,
-                width,
-                height,
-                rdata.len(),
-                rect.rect.min.x as i16,
-                rect.rect.min.y as i16,
-                &self.cfg,
-            );
             fbink_wait_for_complete(self.fd, LAST_MARKER);
         }
     }
@@ -143,9 +133,9 @@ impl FBInkBackend {
             let mut fbink_ot: FBInkOTConfig = std::mem::zeroed();
             let mut fbink_ot_fit: FBInkOTFit = std::mem::zeroed();
             let mut font_fb_config: FBInkConfig = std::mem::zeroed(); // self.fbink_cfg;
-            //font_fb_config.pen_fg_color = FG_COLOR_INDEX_E_FG_WHITE;
-            //font_fb_config.pen_bg_color = BG_COLOR_INDEX_E_BG_WHITE;
-    
+                                                                      //font_fb_config.pen_fg_color = FG_COLOR_INDEX_E_FG_WHITE;
+                                                                      //font_fb_config.pen_bg_color = BG_COLOR_INDEX_E_BG_WHITE;
+
             fbink_ot.margins.left = text.pos.x as i16;
             fbink_ot.margins.top = text.pos.y as i16;
             //fbink_ot.margins.right = 0;
@@ -167,8 +157,92 @@ impl FBInkBackend {
         }
     }
 
-    pub fn draw_paths(&mut self, text: PathShape) {
+    pub fn draw_paths(&mut self, text: PathShape) {}
 
+    pub fn set_pixel(&self, x: i32, y: i32, color: Rgb888) {
+        debug!("Setting pixel at {}x{} with color {:?}", x, y, color);
+        let mut px: u32 = 0;
+        unsafe {
+            //fbink_pack_pixel_rgba(color.r(), color.b(), color.g(), 255, &mut px); // alfa channel?
+            //fbink_put_pixel(x as u16, y as u16, &px as *const _ as *mut ffi::c_void);
+            // the fuck
+
+            fbink_put_pixel_rgba(x as u16, y as u16, color.r(), color.b(), color.g(), 255);
+
+            /*
+            let mut cls_rect: FBInkRect = std::mem::zeroed();
+            cls_rect.left = x as u16;
+            cls_rect.top = y as u16;
+            cls_rect.width = 1;
+            cls_rect.height = 1;
+            fbink_fill_rect_rgba(self.fd, &self.cfg, &cls_rect, false, color.r(), color.b(), color.g(), 255);
+            */
+            fbink_wait_for_complete(self.fd, LAST_MARKER);
+        }
+    }
+}
+
+// https://docs.rs/embedded-graphics-core/latest/embedded_graphics_core/draw_target/trait.DrawTarget.html#associatedtype.Color
+impl DrawTarget for FBInkBackend {
+    type Color = Rgb888;
+
+    fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
+    where
+        I: IntoIterator<Item = Pixel<Self::Color>>,
+    {
+        let width = self.state.screen_width as i32;
+        let height = self.state.screen_height as i32;
+        for Pixel(coord, color) in pixels.into_iter() {
+            if coord.x < width && coord.y < height && coord.x >= 0 && coord.y >= 0 {
+                self.set_pixel(coord.x, coord.y, color);
+            }
+        }
+
+        Ok(())
+    }
+
+    /*
+    fn fill_solid(&mut self, area: &Rectangle, color: Self::Color) -> Result<(), Self::Error> {
+        // Clamp the rectangle coordinates to the valid range by determining
+        // the intersection of the fill area and the visible display area
+        // by using Rectangle::intersection.
+        let area = area.intersection(&self.bounding_box());
+
+        // Do not send a draw rectangle command if the intersection size if zero.
+        // The size is checked by using `Rectangle::bottom_right`, which returns `None`
+        // if the size is zero.
+
+        debug!("fill solid maybe");
+
+        let bottom_right = if let Some(bottom_right) = area.bottom_right() {
+            bottom_right
+        } else {
+            return Ok(());
+        };
+
+        debug!("fill solid now");
+
+        unsafe {
+            let mut cls_rect: FBInkRect = std::mem::zeroed();
+            cls_rect.left = area.top_left.x as u16;
+            cls_rect.top = area.top_left.y as u16;
+            cls_rect.width = area.size.width as u16;
+            cls_rect.height = area.size.height as u16;
+            fbink_fill_rect_rgba(self.fd, &self.cfg, &cls_rect, false, color.r(), color.g(), color.b(), 255);
+            fbink_wait_for_complete(self.fd, LAST_MARKER);
+        }
+
+        Ok(())
+    }
+    */
+
+
+    type Error = core::convert::Infallible;
+}
+
+impl OriginDimensions for FBInkBackend {
+    fn size(&self) -> Size {
+        Size::new(self.state.screen_width, self.state.screen_height)
     }
 }
 
