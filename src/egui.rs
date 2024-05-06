@@ -31,7 +31,7 @@ impl EguiStuff {
         let ctx = Context::default();
         ctx.set_embed_viewports(true);
         ctx.set_pixels_per_point(pixel_per_point);
-        //ctx.set_visuals(egui::Visuals::light());
+        ctx.set_visuals(egui::Visuals::light());
 
         let mut style = (*ctx.style()).clone();
 

@@ -19,7 +19,7 @@ pub fn start(mut app: Box<dyn App>, native_options: NativeOptions, pixel_per_poi
     runner.next_frame();
     loop {
         runner.next_frame();
-        sleep(Duration::from_secs(3));
+        sleep(Duration::from_secs(7));
     }
 }
 

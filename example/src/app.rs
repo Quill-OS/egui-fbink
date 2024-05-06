@@ -66,7 +66,9 @@ impl App for TemplateApp {
             ui.heading("This is a heading");
             ui.hyperlink("https://this_is_a_link");
             ui.checkbox(&mut true, "This is a checkbox");
-            egui::warn_if_debug_build(ui);
+            if ui.add(egui::Button::new("This is a button")).clicked() {
+                
+            }            
         });
 
         /*

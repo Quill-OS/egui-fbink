@@ -214,7 +214,7 @@ impl DrawTarget for FBInkBackend {
         };
 
         if area.size.width <= 1 || area.size.height <= 1 {
-            warn!("Using bare pixels to draw this rect: {:?}", area);
+            //warn!("Using bare pixels to draw this rect: {:?}", area);
             // We need to do it manually because it won't work with rect below 1 px in a direction
             for y in 0..area.size.height {
                 for x in 0..area.size.width {
@@ -223,18 +223,19 @@ impl DrawTarget for FBInkBackend {
             }
             // We need to refresh this part of it manually because its putting pixels
             // And we can't refresh a single line
-            let mut new_width = area.size.width + 2;
-            let mut new_height = area.size.height + 2;
+            let changer = 1;
+            let mut new_width = area.size.width + changer;
+            let mut new_height = area.size.height + changer;
 
             while new_width + area.top_left.x as u32 >= self.state.screen_width {
-                new_width = new_width - 2;
+                new_width = new_width - changer;
             }
 
             while new_height + area.top_left.y as u32 >= self.state.screen_height {
-                new_height = new_height - 2;
+                new_height = new_height - changer;
             }
 
-            unsafe { fbink_refresh(self.fd, area.top_left.x as u32 + 1, area.top_left.y as u32 + 1, new_width, new_height, &self.cfg) };
+            unsafe { fbink_refresh(self.fd, area.top_left.y as u32, area.top_left.x as u32, new_width, new_height, &self.cfg) };
         } else {
             unsafe {
                 let mut cls_rect: FBInkRect = std::mem::zeroed();
