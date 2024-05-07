@@ -10,10 +10,12 @@ use crate::fbink::FBInkBackend;
 mod backend;
 mod fbink;
 mod egui;
+mod eink_theme;
 
 pub fn start(mut app: Box<dyn App>, native_options: NativeOptions, pixel_per_point: f32, zoom_factor: f32) -> () {
     let mut fb = FBInkBackend::new();
     let mut egui_stuff: EguiStuff = EguiStuff::new(app, &fb, pixel_per_point, zoom_factor);
+    egui_stuff.manage_zoom();
     let mut runner = AppRunner::new(egui_stuff, fb);
 
     runner.next_frame();

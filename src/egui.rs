@@ -1,11 +1,14 @@
 use std::{collections::HashMap, hash::BuildHasherDefault, time::SystemTime};
 
 use eframe::App;
+use egui::style::WidgetVisuals;
 use egui::FontFamily::Proportional;
 use egui::FontId;
+use egui::Rounding;
 use egui::TextStyle::*;
 use egui::{Context, Pos2, Rect, Vec2, ViewportId, ViewportInfo};
 
+use crate::eink_theme::style;
 use crate::fbink::FBInkBackend;
 
 pub struct EguiStuff {
@@ -32,17 +35,7 @@ impl EguiStuff {
         ctx.set_embed_viewports(true);
         ctx.set_pixels_per_point(pixel_per_point);
         ctx.set_visuals(egui::Visuals::light());
-
-        let mut style = (*ctx.style()).clone();
-
-        for ts in &mut style.text_styles {
-            ts.1.size *= zoom_factor;
-        }
-
-        style.spacing.icon_width_inner *= zoom_factor;
-        style.spacing.icon_width *= zoom_factor;
-
-        ctx.set_style(style);
+        ctx.set_style(style()); // Set the eink style
 
         /*
         let mut fonts = egui::FontDefinitions::default();
@@ -116,5 +109,75 @@ impl EguiStuff {
             self.start_time = Some(SystemTime::now());
             return None;
         }
+    }
+
+    pub fn manage_zoom(&mut self) {
+        let mut style = (*self.ctx.style()).clone();
+
+        for ts in &mut style.text_styles {
+            ts.1.size *= self.zoom_factor;
+        }
+
+        let rounding_zoom = |rounding: &mut Rounding| {
+            rounding.nw *= self.zoom_factor;
+            rounding.ne *= self.zoom_factor;
+            rounding.sw *= self.zoom_factor;
+            rounding.se *= self.zoom_factor;
+        };
+
+        let widget_visual_zoom = |widget_visuals: &mut WidgetVisuals| {
+            rounding_zoom(&mut widget_visuals.rounding);
+    
+            widget_visuals.bg_stroke.width *= self.zoom_factor;
+            widget_visuals.fg_stroke.width *= self.zoom_factor;
+    
+            widget_visuals.expansion *= self.zoom_factor;
+        };
+
+        // Adjustments in the `Spacing` struct
+        style.spacing.item_spacing *= self.zoom_factor;
+        style.spacing.button_padding *= self.zoom_factor;
+        style.spacing.menu_margin.left *= self.zoom_factor;
+        style.spacing.menu_margin.right *= self.zoom_factor;
+        style.spacing.window_margin.top *= self.zoom_factor;
+        style.spacing.window_margin.bottom *= self.zoom_factor;
+        style.spacing.indent *= self.zoom_factor;
+        style.spacing.interact_size *= self.zoom_factor;
+        style.spacing.slider_width *= self.zoom_factor;
+        style.spacing.slider_rail_height *= self.zoom_factor;
+        style.spacing.combo_width *= self.zoom_factor;
+        style.spacing.text_edit_width *= self.zoom_factor;
+        style.spacing.icon_width *= self.zoom_factor;
+        style.spacing.icon_width_inner *= self.zoom_factor;
+        style.spacing.icon_spacing *= self.zoom_factor;
+        style.spacing.tooltip_width *= self.zoom_factor;
+        style.spacing.menu_width *= self.zoom_factor;
+        style.spacing.menu_spacing *= self.zoom_factor;
+        style.spacing.combo_height *= self.zoom_factor;
+
+        // Adjustments in the `Interaction` struct
+        style.interaction.interact_radius *= self.zoom_factor;
+        style.interaction.resize_grab_radius_side *= self.zoom_factor;
+        style.interaction.resize_grab_radius_corner *= self.zoom_factor;
+        style.interaction.tooltip_delay *= self.zoom_factor;
+
+        // Adjustments in the `Visuals` struct
+        rounding_zoom(&mut style.visuals.window_rounding);
+                
+        style.visuals.window_shadow.offset *= self.zoom_factor;
+
+        rounding_zoom(&mut style.visuals.menu_rounding);
+
+        style.visuals.resize_corner_size *= self.zoom_factor;
+        style.visuals.text_cursor.width *= self.zoom_factor;
+        style.visuals.clip_rect_margin *= self.zoom_factor;
+
+        widget_visual_zoom(&mut style.visuals.widgets.noninteractive);
+        widget_visual_zoom(&mut style.visuals.widgets.inactive);
+        widget_visual_zoom(&mut style.visuals.widgets.hovered);
+        widget_visual_zoom(&mut style.visuals.widgets.active);
+        widget_visual_zoom(&mut style.visuals.widgets.open);
+
+        self.ctx.set_style(style);
     }
 }

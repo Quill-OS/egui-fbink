@@ -55,12 +55,12 @@ impl FBInkBackend {
             }
 
             fbink_get_state(&cfg, &mut state);
-            // Why does it compile but it shows errors
+            // Why does it compile but it shows errors - sometimes
             debug!(
                 "Running on {:?}, codename: {:?}, platform: {:?}, with screen: {:?}x{:?}",
-                u8_to_string(state.device_name),
-                u8_to_string(state.device_codename),
-                u8_to_string(state.device_platform),
+                x8_to_string(state.device_name),
+                x8_to_string(state.device_codename),
+                x8_to_string(state.device_platform),
                 state.screen_width,
                 state.screen_height
             );
@@ -121,7 +121,7 @@ impl FBInkBackend {
             Size::new(rect.rounding.ne as u32, rect.rounding.ne as u32),
         )
         .into_styled(style)
-        .draw(self);
+        .draw(self).expect("Failed to draw rounded rect");
 
         unsafe {
             fbink_refresh(self.fd, rect.rect.left() as u32, rect.rect.top() as u32, rect.rect.width() as u32, rect.rect.height() as u32, &self.cfg);
@@ -271,7 +271,23 @@ pub fn invert_byte(b: u8) -> u8 {
     !b
 }
 
-fn u8_to_string(arr: [u8; 32]) -> String {
-    let mut str: String = arr.iter().map(|&c| c as char).collect();
-    str.replace("\0", "")
+trait ToChar {
+    fn to_char(self) -> char;
+}
+
+impl ToChar for i8 {
+    fn to_char(self) -> char {
+        self as u8 as char
+    }
+}
+
+impl ToChar for u8 {
+    fn to_char(self) -> char {
+        self as char
+    }
+}
+
+fn x8_to_string<T: ToChar + Copy>(arr: [T; 32]) -> String {
+    let str: String = arr.iter().map(|c| (*c).to_char()).collect();
+    str.replace("\0", "") // Remove null characters
 }
