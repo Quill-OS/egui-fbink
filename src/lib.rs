@@ -18,10 +18,9 @@ pub fn start(mut app: Box<dyn App>, native_options: NativeOptions, pixel_per_poi
     egui_stuff.manage_zoom();
     let mut runner = AppRunner::new(egui_stuff, fb);
 
-    runner.next_frame();
     loop {
         runner.next_frame();
-        sleep(Duration::from_secs(7));
+        sleep(Duration::from_secs(20));
     }
 }
 

@@ -38,8 +38,8 @@ impl AppRunner {
     }
 
     pub fn draw_shapes(&mut self, clipped_shapes: Vec<ClippedShape>) {
-        let ppp = self.egui.pixel_per_point;
-        debug!("draw shapes pixel per point: {}", ppp);
+        //let ppp = self.egui.pixel_per_point;
+        //debug!("draw shapes pixel per point: {}", ppp);
         for shape in clipped_shapes {
             if shape.clip_rect.is_negative() {
                 error!("clip rect is negative");

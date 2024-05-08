@@ -10,13 +10,18 @@ use embedded_graphics::{
         Gray8, GrayColor, Rgb555, Rgb565, Rgb888,
     },
     prelude::*,
-    primitives::{Circle, PrimitiveStyle, PrimitiveStyleBuilder, Rectangle, RoundedRectangle},
+    primitives::{
+        Circle, Line, Polyline, PrimitiveStyle, PrimitiveStyleBuilder, Rectangle, RoundedRectangle,
+    },
 };
 use fbink_sys::fbink_get_state;
-use fbink_sys::fbink_put_pixel_rgba;
 use fbink_sys::fbink_print_ot;
 use fbink_sys::fbink_print_raw_data;
 use fbink_sys::fbink_put_pixel;
+use fbink_sys::fbink_put_pixel_rgba;
+use fbink_sys::fbink_refresh;
+use fbink_sys::fbink_refresh_rect;
+use fbink_sys::fbink_update_pen_colors;
 use fbink_sys::FBInkOTConfig;
 use fbink_sys::FBInkOTFit;
 use fbink_sys::FBInkState;
@@ -29,7 +34,6 @@ use fbink_sys::{
 use ffi::CString;
 use log::{debug, error, warn};
 use std::{ffi, fs, process::exit};
-use fbink_sys::fbink_refresh;
 
 pub struct FBInkBackend {
     pub cfg: FBInkConfig,
@@ -45,6 +49,7 @@ impl FBInkBackend {
             exit(1);
         }
         let mut cfg: FBInkConfig = unsafe { std::mem::zeroed() };
+        cfg.is_bgless = true;
 
         let mut state: FBInkState = unsafe { std::mem::zeroed() };
 
@@ -93,13 +98,14 @@ impl FBInkBackend {
             fbink_wait_for_complete(fd, LAST_MARKER);
         }
 
-        let mut fb = Vec::with_capacity((state.screen_width * state.screen_height) as usize * 3);
-        fb.fill(0);
-
         Self { cfg, fd, state }
     }
 
     pub fn draw_rect(&mut self, rect: RectShape) {
+        if rect.rect.height() == 0.0 || rect.rect.width() == 0.0 {
+            warn!("Why does egui do this, width or height is 0");
+            return;
+        }
         let stroke_color = Rgb888::new(
             rect.stroke.color.r(),
             rect.stroke.color.g(),
@@ -121,10 +127,21 @@ impl FBInkBackend {
             Size::new(rect.rounding.ne as u32, rect.rounding.ne as u32),
         )
         .into_styled(style)
-        .draw(self).expect("Failed to draw rounded rect");
+        .draw(self)
+        .expect("Failed to draw rounded rect");
 
         unsafe {
-            fbink_refresh(self.fd, rect.rect.left() as u32, rect.rect.top() as u32, rect.rect.width() as u32, rect.rect.height() as u32, &self.cfg);
+            let mut cls_rect: FBInkRect = std::mem::zeroed();
+            cls_rect.left = rect.rect.left() as u16;
+            cls_rect.top = rect.rect.top() as u16;
+            cls_rect.width = rect.rect.width() as u16;
+            cls_rect.height = rect.rect.height() as u16;
+            if fbink_refresh_rect(self.fd, &cls_rect, &self.cfg) < 0 {
+                error!(
+                    "Failed to refresh direct rect:  {} {} {} {}",
+                    cls_rect.left, cls_rect.top, cls_rect.width, cls_rect.height
+                );
+            }
         }
     }
 
@@ -132,9 +149,11 @@ impl FBInkBackend {
         unsafe {
             let mut fbink_ot: FBInkOTConfig = std::mem::zeroed();
             let mut fbink_ot_fit: FBInkOTFit = std::mem::zeroed();
-            let mut font_fb_config: FBInkConfig = std::mem::zeroed(); // self.fbink_cfg;
-                                                                      //font_fb_config.pen_fg_color = FG_COLOR_INDEX_E_FG_WHITE;
-                                                                      //font_fb_config.pen_bg_color = BG_COLOR_INDEX_E_BG_WHITE;
+            if let Some(c) = text.override_text_color {
+                let mut font_fb_config: FBInkConfig = self.cfg;
+                font_fb_config.fg_color = rgb_to_gray(c.r(), c.g(), c.b());
+                fbink_update_pen_colors(&font_fb_config);
+            }
 
             fbink_ot.margins.left = text.pos.x as i16;
             fbink_ot.margins.top = text.pos.y as i16;
@@ -143,27 +162,70 @@ impl FBInkBackend {
             fbink_ot.size_px = text.galley.size().y as u16;
             let cstr = CString::new(&*text.galley.text()).unwrap();
             let cchar: *const ::std::os::raw::c_char = cstr.as_ptr();
-            if fbink_print_ot(
-                self.fd,
-                cchar,
-                &fbink_ot,
-                &font_fb_config,
-                &mut fbink_ot_fit,
-            ) < 0
-            {
+            if fbink_print_ot(self.fd, cchar, &fbink_ot, &self.cfg, &mut fbink_ot_fit) < 0 {
                 error!("Failed to print string");
             }
             fbink_wait_for_complete(self.fd, LAST_MARKER);
+
+            if text.override_text_color.is_some() {
+                let font_fb_config: FBInkConfig = self.cfg;
+                fbink_update_pen_colors(&font_fb_config);
+            }
         }
     }
 
-    pub fn draw_paths(&mut self, text: PathShape) {}
+    pub fn draw_paths(&mut self, path: PathShape) {
+        let style = PrimitiveStyleBuilder::new()
+            .fill_color(Rgb888::new(path.fill.r(), path.fill.g(), path.fill.b()))
+            .stroke_color(Rgb888::new(
+                path.stroke.color.r(),
+                path.stroke.color.g(),
+                path.stroke.color.b(),
+            ))
+            .stroke_width(path.stroke.width as u32)
+            .build();
+
+        let mut points = Vec::with_capacity(path.points.len());
+        for p in path.points {
+            points.push(Point::new(p.x as i32, p.y as i32));
+        }
+
+        let poly_line = Polyline::new(&points)
+            .into_styled(style);
+        let poly_rect = poly_line.bounding_box();
+        poly_line.draw(self).expect("Failed to draw poly line");
+
+        if poly_rect.is_zero_sized() == true {
+            warn!("This poly line is zero sized");
+            return;
+        }
+        unsafe {
+            let mut cls_rect: FBInkRect = std::mem::zeroed();
+            cls_rect.left = poly_rect.top_left.x as u16;
+            cls_rect.top = poly_rect.top_left.y as u16;
+            cls_rect.width = poly_rect.size.width as u16;
+            cls_rect.height = poly_rect.size.height as u16;
+            if fbink_refresh_rect(self.fd, &cls_rect, &self.cfg) < 0 {
+                error!(
+                    "Failed to refresh direct rect:  {} {} {} {}",
+                    cls_rect.left, cls_rect.top, cls_rect.width, cls_rect.height
+                );
+            }
+        }
+    }
 
     pub fn set_pixel(&self, x: i32, y: i32, color: Rgb888) {
         //debug!("Setting pixel at {}x{} with color {:?}", x, y, color);
         unsafe {
-
-            fbink_put_pixel_rgba(self.fd, x as u16, y as u16, color.r(), color.b(), color.g(), 255);
+            fbink_put_pixel_rgba(
+                self.fd,
+                x as u16,
+                y as u16,
+                color.r(),
+                color.b(),
+                color.g(),
+                255,
+            );
 
             /*
             let mut cls_rect: FBInkRect = std::mem::zeroed();
@@ -201,7 +263,7 @@ impl DrawTarget for FBInkBackend {
         // Clamp the rectangle coordinates to the valid range by determining
         // the intersection of the fill area and the visible display area
         // by using Rectangle::intersection.
-        let area = area.intersection(&self.bounding_box());
+        let mut area = area.intersection(&self.bounding_box());
 
         // Do not send a draw rectangle command if the intersection size if zero.
         // The size is checked by using `Rectangle::bottom_right`, which returns `None`
@@ -218,7 +280,11 @@ impl DrawTarget for FBInkBackend {
             // We need to do it manually because it won't work with rect below 1 px in a direction
             for y in 0..area.size.height {
                 for x in 0..area.size.width {
-                    self.set_pixel(area.top_left.x + x as i32, area.top_left.y + y as i32, color);
+                    self.set_pixel(
+                        area.top_left.x + x as i32,
+                        area.top_left.y + y as i32,
+                        color,
+                    );
                 }
             }
             // We need to refresh this part of it manually because its putting pixels
@@ -227,15 +293,47 @@ impl DrawTarget for FBInkBackend {
             let mut new_width = area.size.width + changer;
             let mut new_height = area.size.height + changer;
 
-            while new_width + area.top_left.x as u32 >= self.state.screen_width {
-                new_width = new_width - changer;
+            if new_width + area.top_left.x as u32 > self.state.screen_width {
+                // debug!(
+                //     "Why are we here x {} {} {}",
+                //     new_width, area.top_left.x, self.state.screen_width
+                // );
+                if area.top_left.x - changer as i32 > 0 {
+                    area.top_left.x = area.top_left.x - changer as i32;
+                } else {
+                    new_width = new_width - changer;
+                }
             }
 
-            while new_height + area.top_left.y as u32 >= self.state.screen_height {
-                new_height = new_height - changer;
+            if new_height + area.top_left.y as u32 > self.state.screen_height {
+                // debug!(
+                //     "Why are we here y {} {} {}",
+                //     new_height, area.top_left.y, self.state.screen_height
+                // );
+                if area.top_left.y - changer as i32 > 0 {
+                    area.top_left.y = area.top_left.y - changer as i32;
+                } else {
+                    new_height = new_height - changer;
+                }
             }
 
-            unsafe { fbink_refresh(self.fd, area.top_left.y as u32, area.top_left.x as u32, new_width, new_height, &self.cfg) };
+            if new_height >= 2 && new_width >= 2 {
+                unsafe {
+                    let mut cls_rect: FBInkRect = std::mem::zeroed();
+                    cls_rect.left = area.top_left.x as u16;
+                    cls_rect.top = area.top_left.y as u16;
+                    cls_rect.width = new_width as u16;
+                    cls_rect.height = new_height as u16;
+                    if fbink_refresh_rect(self.fd, &cls_rect, &self.cfg) < 0 {
+                        error!(
+                            "Failed to refresh via pixel wrapper: {} {} {} {}",
+                            area.top_left.x, area.top_left.y, new_width, new_height
+                        );
+                    }
+                };
+            } else {
+                warn!("Somehow, we are here: {} {}", new_height, new_width);
+            }
         } else {
             unsafe {
                 let mut cls_rect: FBInkRect = std::mem::zeroed();
@@ -243,14 +341,27 @@ impl DrawTarget for FBInkBackend {
                 cls_rect.top = area.top_left.y as u16;
                 cls_rect.width = area.size.width as u16;
                 cls_rect.height = area.size.height as u16;
-                fbink_fill_rect_rgba(self.fd, &self.cfg, &cls_rect, false, color.r(), color.g(), color.b(), 255);
-                fbink_wait_for_complete(self.fd, LAST_MARKER);
+                fbink_fill_rect_rgba(
+                    self.fd,
+                    &self.cfg,
+                    &cls_rect,
+                    false,
+                    color.r(),
+                    color.g(),
+                    color.b(),
+                    255,
+                );
+                if fbink_wait_for_complete(self.fd, LAST_MARKER) < 0 {
+                    error!(
+                        "Failed to refresh via fill rect: {} {} {} {}",
+                        area.top_left.x, area.top_left.y, area.size.width, area.size.height
+                    );
+                }
             }
         }
 
         Ok(())
     }
-
 
     type Error = core::convert::Infallible;
 }

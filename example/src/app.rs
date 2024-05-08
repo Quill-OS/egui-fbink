@@ -1,5 +1,5 @@
 use eframe::{App, Frame};
-use egui::{self, menu, CentralPanel, Context, TopBottomPanel};
+use egui::{self, menu, CentralPanel, Context, ProgressBar, TopBottomPanel};
 use egui_fbink::handle_component_update;
 use log::debug;
 
@@ -26,7 +26,7 @@ impl App for TemplateApp {
         // Pick whichever suits you.
         // Tip: a good default choice is to just keep the `CentralPanel`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
-        
+
         /*
         TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:
@@ -63,13 +63,23 @@ impl App for TemplateApp {
          */
         CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
-            ui.heading("This is a heading");
-            ui.hyperlink("https://this_is_a_link");
+            if false {
+                ui.heading("This is a heading");
+                ui.hyperlink("https://this_is_a_link");
+            }
             ui.checkbox(&mut true, "This is a checkbox");
-            if ui.add(egui::Button::new("This is a button")).clicked() {
-                
-            }            
-        });
+            if ui.add(egui::Button::new("This is a button")).clicked() {}
+            ui.add(egui::Slider::new(&mut 50.0, 0.0..=100.0).text("This is a slider"));
+            egui::ComboBox::from_label("This is a combo box")
+                .selected_text(format!("Combo box indeed"))
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut "Nothing here", "Hey", "First");
+                    ui.selectable_value(&mut "Woah", "Bye", "Second");
+                    ui.selectable_value(&mut "No way", "who is there", "Third");
+                });
+            ui.radio_value(&mut "Nope", "First", "This is a radio button");
+            ui.add(ProgressBar::new(0.5).text("This is a progress bar"));
+       });
 
         /*
         if false {
