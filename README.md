@@ -28,6 +28,7 @@ echo "export ARMV7l_MUSL_CROSS=$ARMV7l_MUSL_CROSS" >> ~/.bash_profile
 mkdir -p $ARMV7l_MUSL_CROSS
 curl -L "http://musl.cc/armv7l-linux-musleabihf-cross.tgz" -o "armv7l-linux-musleabihf-cross.tgz"
 tar -xf armv7l-linux-musleabihf-cross.tgz -C $ARMV7l_MUSL_CROSS --strip 1
+rm armv7l-linux-musleabihf-cross.tgz
 ```
 
 Now we add the toolchain to our path, again, remember to add a different path if you chose to store the toolchain elsewhere.
