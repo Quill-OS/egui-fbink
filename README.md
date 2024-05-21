@@ -58,3 +58,7 @@ cd ..
 cargo build --target armv7-unknown-linux-musleabihf
 cd .. 
 ```
+And we can now successfully build egui-fbink
+```
+cargo build --target armv7-unknown-linux-musleabihf
+```
