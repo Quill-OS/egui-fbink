@@ -14,17 +14,29 @@ GlibC
 
 ## Installing the toolchains
 
-Here we download the toolchain, for this guide it is assumed that you want to store it in a `toolchains` folder in your home directory. Feel free to edit the paths to your preferences if you wish.
+Here we download the toolchain.
+We will start by defining a variable which will be where we store the path, feel free to specify wherever you want for this.
 ```
-mkdir ~/toolchains
-cd ~/toolchains
+export ARMV7l_MUSL_CROSS="/home/user/projects/toolchains/armv7l-linux-musleabihf-cross" # set this to whatever you want
+```
+Add this to your shells config file, for example if you use bash:
+```
+echo "export ARMV7l_MUSL_CROSS=$ARMV7l_MUSL_CROSS" >> ~/.bash_profile 
+```
+
+```
+mkdir -p $ARMV7l_MUSL_CROSS
 curl -L "http://musl.cc/armv7l-linux-musleabihf-cross.tgz" -o "armv7l-linux-musleabihf-cross.tgz"
-tar -xf armv7l-linux-musleabihf-cross.tgz
+tar -xf armv7l-linux-musleabihf-cross.tgz -C $ARMV7l_MUSL_CROSS --strip 1
 ```
 
 Now we add the toolchain to our path, again, remember to add a different path if you chose to store the toolchain elsewhere.
 ```
-PATH="$PATH:/home/$USER/toolchains/armv7l-linux-musleabihf-cross/bin"
+export PATH="$PATH:$ARMV7l_MUSL_CROSS/bin"
+```
+To then add this to your path permanently add it to your shell's config like we did before:
+```
+echo "export PATH=$PATH" >> ~/.bash_profile 
 ```
 
 Now add the rust toolchain:
@@ -46,15 +58,3 @@ cd ..
 cargo build --target armv7-unknown-linux-musleabihf
 cd .. 
 ```
-
-Here we need to edit the build.rs to edit this line from:
-```rust
-std::fs::copy("/home/build/qos/toolchains/armv7l-linux-musleabihf-cross/armv7l-linux-musleabihf/lib/libdl.a", out_path.join("libdl.a")).expect("Failed to copy libdl.a library");
-```
-To:
-```rust
-std::fs::copy("/home/user/toolchains/armv7l-linux-musleabihf-cross/armv7l-linux-musleabihf/lib/libdl.a", out_path.join("libdl.a")).expect("Failed to copy libdl.a library");
-```
-
-Make sure to use your own username instead of `user`.
-
